@@ -1,0 +1,2 @@
+Esta carpeta se usa para guardar data/db.json (se crea solo al arrancar el servidor).
+No la borres, pero no necesitas tocar nada aqui.
