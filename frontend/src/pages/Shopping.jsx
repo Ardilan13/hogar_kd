@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ShoppingCart, Plus, Trash2, Loader2, Check } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, Loader2, Check, Pencil } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
+import ImageUploadField from '../components/ImageUploadField';
 
 const CATEGORIES = ['Mercado', 'Aseo', 'Hogar', 'Otro'];
 
@@ -14,7 +15,9 @@ export default function Shopping() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: '', quantity: '', category: 'Mercado' });
+  const [imageFile, setImageFile] = useState(null);
 
   function load() {
     setLoading(true);
@@ -31,13 +34,41 @@ export default function Shopping() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      const created = await api.post('/shopping', { ...form, addedBy: user.name, bought: false });
-      setItems((prev) => [created, ...prev]);
-      setForm({ name: '', quantity: '', category: 'Mercado' });
-      setOpen(false);
+      let imageUrl = '';
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const data = await api.postForm('/media/upload', formData, { auth: true });
+        imageUrl = data.url;
+      }
+      const payload = { ...form, addedBy: user.name, bought: false, imageUrl };
+      const created = editingId
+        ? await api.put(`/shopping/${editingId}`, payload)
+        : await api.post('/shopping', payload);
+      setItems((prev) => {
+        if (editingId) {
+          return prev.map((i) => (i.id === editingId ? created : i));
+        }
+        return [created, ...prev];
+      });
+      resetForm();
     } finally {
       setSaving(false);
     }
+  }
+
+  function resetForm() {
+    setForm({ name: '', quantity: '', category: 'Mercado' });
+    setImageFile(null);
+    setEditingId(null);
+    setOpen(false);
+  }
+
+  function startEdit(item) {
+    setEditingId(item.id);
+    setForm({ name: item.name || '', quantity: item.quantity || '', category: item.category || 'Mercado' });
+    setImageFile(null);
+    setOpen(true);
   }
 
   async function toggleBought(item) {
@@ -61,7 +92,7 @@ export default function Shopping() {
         title="Mercado"
         description={`${pending.length} pendiente${pending.length === 1 ? '' : 's'} por comprar`}
         action={
-          <button className="btn-primary" onClick={() => setOpen(true)}>
+          <button className="btn-primary" onClick={() => { resetForm(); setOpen(true); }}>
             <Plus size={18} /> Agregar
           </button>
         }
@@ -87,7 +118,7 @@ export default function Shopping() {
           {pending.length > 0 && (
             <div className="card divide-y divide-line">
               {pending.map((item) => (
-                <Row key={item.id} item={item} onToggle={toggleBought} onDelete={remove} />
+                <Row key={item.id} item={item} onToggle={toggleBought} onDelete={remove} onEdit={startEdit} />
               ))}
             </div>
           )}
@@ -97,7 +128,7 @@ export default function Shopping() {
               <p className="label mb-2 px-1">Ya comprado</p>
               <div className="card divide-y divide-line opacity-60">
                 {bought.map((item) => (
-                  <Row key={item.id} item={item} onToggle={toggleBought} onDelete={remove} />
+                  <Row key={item.id} item={item} onToggle={toggleBought} onDelete={remove} onEdit={startEdit} />
                 ))}
               </div>
             </div>
@@ -105,7 +136,7 @@ export default function Shopping() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Agregar al mercado">
+      <Modal open={open} onClose={resetForm} title={editingId ? 'Editar producto' : 'Agregar al mercado'}>
         <form onSubmit={handleAdd} className="space-y-4">
           <div>
             <label className="label" htmlFor="name">Producto</label>
@@ -143,8 +174,9 @@ export default function Shopping() {
               </select>
             </div>
           </div>
+          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
           <button type="submit" disabled={saving || !form.name.trim()} className="btn-primary w-full">
-            {saving ? <Loader2 size={18} className="animate-spin" /> : 'Agregar'}
+            {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Agregar'}
           </button>
         </form>
       </Modal>
@@ -152,9 +184,10 @@ export default function Shopping() {
   );
 }
 
-function Row({ item, onToggle, onDelete }) {
+function Row({ item, onToggle, onDelete, onEdit }) {
+  const accent = item.addedBy && item.addedBy === 'Dilan' ? 'bg-berry/10' : 'bg-sage/10';
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-lg ${accent}`}>
       <button
         onClick={() => onToggle(item)}
         className={`w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -172,13 +205,18 @@ function Row({ item, onToggle, onDelete }) {
           {[item.quantity, item.category].filter(Boolean).join(' · ')} {item.addedBy ? `· agregado por ${item.addedBy}` : ''}
         </p>
       </div>
-      <button
-        onClick={() => onDelete(item.id)}
-        className="p-1.5 text-ink/30 hover:text-berry transition-colors"
-        aria-label="Borrar"
-      >
-        <Trash2 size={16} />
-      </button>
+      <div className="flex items-center gap-1">
+        <button onClick={() => onEdit(item)} className="p-1.5 text-ink/30 hover:text-berry transition-colors" aria-label="Editar">
+          <Pencil size={15} />
+        </button>
+        <button
+          onClick={() => onDelete(item.id)}
+          className="p-1.5 text-ink/30 hover:text-berry transition-colors"
+          aria-label="Borrar"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
     </div>
   );
 }

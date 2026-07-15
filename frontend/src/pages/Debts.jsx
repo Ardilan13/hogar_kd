@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Coins, Plus, Trash2, Loader2, Check, Scale } from 'lucide-react';
+import { Coins, Plus, Trash2, Loader2, Check, Scale, Pencil } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
+import ImageUploadField from '../components/ImageUploadField';
 import { formatCurrency, formatDateShort } from '../utils/format';
 
 export default function Debts() {
@@ -16,7 +17,9 @@ export default function Debts() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPaid, setShowPaid] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ from: '', to: '', amount: '', description: '' });
+  const [imageFile, setImageFile] = useState(null);
 
   function load() {
     setLoading(true);
@@ -43,13 +46,38 @@ export default function Debts() {
     if (!form.amount || form.from === form.to) return;
     setSaving(true);
     try {
-      await api.post('/debts', { ...form, amount: Number(form.amount), paid: false });
-      setForm((f) => ({ ...f, amount: '', description: '' }));
-      setOpen(false);
+      let imageUrl = '';
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const data = await api.postForm('/media/upload', formData, { auth: true });
+        imageUrl = data.url;
+      }
+      const payload = { ...form, amount: Number(form.amount), paid: false, imageUrl };
+      if (editingId) {
+        await api.put(`/debts/${editingId}`, payload);
+      } else {
+        await api.post('/debts', payload);
+      }
+      resetForm();
       load();
     } finally {
       setSaving(false);
     }
+  }
+
+  function resetForm() {
+    setForm({ from: '', to: '', amount: '', description: '' });
+    setImageFile(null);
+    setEditingId(null);
+    setOpen(false);
+  }
+
+  function startEdit(debt) {
+    setEditingId(debt.id);
+    setForm({ from: debt.from || '', to: debt.to || '', amount: debt.amount || '', description: debt.description || '' });
+    setImageFile(null);
+    setOpen(true);
   }
 
   async function togglePaid(debt) {
@@ -143,13 +171,18 @@ export default function Debts() {
                   <p className="font-hand text-xl leading-none">
                     {debt.from} → {debt.to}
                   </p>
-                  <button
-                    onClick={() => remove(debt.id)}
-                    className="text-ink/25 hover:text-berry transition-colors"
-                    aria-label="Borrar"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => startEdit(debt)} className="text-ink/25 hover:text-berry transition-colors" aria-label="Editar">
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => remove(debt.id)}
+                      className="text-ink/25 hover:text-berry transition-colors"
+                      aria-label="Borrar"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
                 <p className="font-display font-semibold text-2xl mt-1">
                   {formatCurrency(debt.amount)}
@@ -174,7 +207,7 @@ export default function Debts() {
         </>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Registrar deuda">
+      <Modal open={open} onClose={resetForm} title={editingId ? 'Editar deuda' : 'Registrar deuda'}>
         <form onSubmit={handleAdd} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -230,12 +263,13 @@ export default function Debts() {
               placeholder="Ej. Uber, cena, mercado..."
             />
           </div>
+          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
           <button
             type="submit"
             disabled={saving || !form.amount || form.from === form.to}
             className="btn-primary w-full"
           >
-            {saving ? <Loader2 size={18} className="animate-spin" /> : 'Registrar'}
+            {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Registrar'}
           </button>
         </form>
       </Modal>

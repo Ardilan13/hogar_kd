@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarClock, Plus, Trash2, Loader2, MapPin, Check } from 'lucide-react';
+import { CalendarClock, Plus, Trash2, Loader2, MapPin, Check, Pencil } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
+import ImageUploadField from '../components/ImageUploadField';
 
 export default function Appointments() {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ export default function Appointments() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     title: '',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -21,6 +23,7 @@ export default function Appointments() {
     location: '',
     notes: ''
   });
+  const [imageFile, setImageFile] = useState(null);
 
   function load() {
     setLoading(true);
@@ -33,13 +36,34 @@ export default function Appointments() {
     if (!form.title.trim() || !form.date) return;
     setSaving(true);
     try {
-      const created = await api.post('/appointments', { ...form, createdBy: user.name, done: false });
-      setItems((prev) => [created, ...prev]);
-      setForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), time: '', location: '', notes: '' });
-      setOpen(false);
+      let imageUrl = '';
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const data = await api.postForm('/media/upload', formData, { auth: true });
+        imageUrl = data.url;
+      }
+      const payload = { ...form, createdBy: user.name, done: false, imageUrl };
+      const created = editingId ? await api.put(`/appointments/${editingId}`, payload) : await api.post('/appointments', payload);
+      setItems((prev) => (editingId ? prev.map((i) => (i.id === editingId ? created : i)) : [created, ...prev]));
+      resetForm();
     } finally {
       setSaving(false);
     }
+  }
+
+  function resetForm() {
+    setForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), time: '', location: '', notes: '' });
+    setImageFile(null);
+    setEditingId(null);
+    setOpen(false);
+  }
+
+  function startEdit(item) {
+    setEditingId(item.id);
+    setForm({ title: item.title || '', date: item.date || format(new Date(), 'yyyy-MM-dd'), time: item.time || '', location: item.location || '', notes: item.notes || '' });
+    setImageFile(null);
+    setOpen(true);
   }
 
   async function toggleDone(item) {
@@ -72,7 +96,7 @@ export default function Appointments() {
         title="Citas y pendientes"
         description="Medico, tramites, planes... todo lo que tenga fecha"
         action={
-          <button className="btn-primary" onClick={() => setOpen(true)}>
+          <button className="btn-primary" onClick={() => { resetForm(); setOpen(true); }}>
             <Plus size={18} /> Agregar cita
           </button>
         }
@@ -97,7 +121,7 @@ export default function Appointments() {
         <div className="space-y-6">
           <div className="card divide-y divide-line">
             {pending.map((item) => (
-              <AppointmentRow key={item.id} item={item} onToggle={toggleDone} onDelete={remove} />
+              <AppointmentRow key={item.id} item={item} onToggle={toggleDone} onDelete={remove} onEdit={startEdit} />
             ))}
             {pending.length === 0 && (
               <p className="text-sm text-ink/45 text-center py-8">No hay pendientes. ¡Al dia! ✨</p>
@@ -108,7 +132,7 @@ export default function Appointments() {
               <p className="label mb-2 px-1">Completadas</p>
               <div className="card divide-y divide-line opacity-60">
                 {done.map((item) => (
-                  <AppointmentRow key={item.id} item={item} onToggle={toggleDone} onDelete={remove} />
+                  <AppointmentRow key={item.id} item={item} onToggle={toggleDone} onDelete={remove} onEdit={startEdit} />
                 ))}
               </div>
             </div>
@@ -116,7 +140,7 @@ export default function Appointments() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Agregar cita">
+      <Modal open={open} onClose={resetForm} title={editingId ? 'Editar cita' : 'Agregar cita'}>
         <form onSubmit={handleAdd} className="space-y-4">
           <div>
             <label className="label" htmlFor="title">Titulo</label>
@@ -170,8 +194,9 @@ export default function Appointments() {
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </div>
+          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
           <button type="submit" disabled={saving || !form.title.trim()} className="btn-primary w-full">
-            {saving ? <Loader2 size={18} className="animate-spin" /> : 'Guardar'}
+            {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Guardar'}
           </button>
         </form>
       </Modal>
@@ -179,7 +204,7 @@ export default function Appointments() {
   );
 }
 
-function AppointmentRow({ item, onToggle, onDelete }) {
+function AppointmentRow({ item, onToggle, onDelete, onEdit }) {
   const dateObj = parseISO(item.date);
   return (
     <div className="flex items-center gap-4 px-4 py-3.5">
@@ -211,13 +236,18 @@ function AppointmentRow({ item, onToggle, onDelete }) {
           )}
         </p>
       </div>
-      <button
-        onClick={() => onDelete(item.id)}
-        className="p-1.5 text-ink/30 hover:text-berry transition-colors shrink-0"
-        aria-label="Borrar"
-      >
-        <Trash2 size={16} />
-      </button>
+      <div className="flex items-center gap-1 shrink-0">
+        <button onClick={() => onEdit(item)} className="p-1.5 text-ink/30 hover:text-berry transition-colors" aria-label="Editar">
+          <Pencil size={15} />
+        </button>
+        <button
+          onClick={() => onDelete(item.id)}
+          className="p-1.5 text-ink/30 hover:text-berry transition-colors"
+          aria-label="Borrar"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
     </div>
   );
 }

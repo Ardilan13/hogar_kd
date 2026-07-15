@@ -7,7 +7,7 @@ class AuthController
     public static function getProfiles(): void
     {
         $pdo = getPdo();
-        $users = $pdo->query('SELECT id, name, avatar FROM users ORDER BY createdAt ASC')->fetchAll(PDO::FETCH_ASSOC);
+        $users = $pdo->query('SELECT id, name, avatar, color FROM users ORDER BY createdAt ASC')->fetchAll(PDO::FETCH_ASSOC);
         sendJson(200, array_map('normalizeRow', $users));
     }
 
@@ -37,6 +37,7 @@ class AuthController
                 'id' => $user['id'],
                 'name' => $user['name'],
                 'avatar' => $user['avatar'],
+                'color' => $user['color'] ?? '#A6435A',
             ],
         ]);
     }

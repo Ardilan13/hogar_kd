@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   X,
-  Heart
+  Heart,
+  Image
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,7 +23,8 @@ const NAV_ITEMS = [
   { to: '/deseos', label: 'Deseos', icon: Gift },
   { to: '/calendario', label: 'Fechas especiales', icon: CalendarHeart },
   { to: '/citas', label: 'Citas y pendientes', icon: CalendarClock },
-  { to: '/notas', label: 'Notitas', icon: StickyNote }
+  { to: '/notas', label: 'Notitas', icon: StickyNote },
+  { to: '/galeria', label: 'Galería', icon: Image }
 ];
 
 function Brand() {

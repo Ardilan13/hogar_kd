@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Gift, Plus, Trash2, Loader2, ExternalLink, Sparkles } from 'lucide-react';
+import { Gift, Plus, Trash2, Loader2, ExternalLink, Sparkles, Pencil } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
+import ImageUploadField from '../components/ImageUploadField';
 import { formatCurrency } from '../utils/format';
 
 const PRIORITIES = {
@@ -19,7 +20,9 @@ export default function Wishlist() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: '', price: '', link: '', priority: 'media' });
+  const [imageFile, setImageFile] = useState(null);
 
   function load() {
     setLoading(true);
@@ -32,13 +35,34 @@ export default function Wishlist() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      const created = await api.post('/wishlist', { ...form, wantedBy: user.name, achieved: false });
-      setItems((prev) => [created, ...prev]);
-      setForm({ name: '', price: '', link: '', priority: 'media' });
-      setOpen(false);
+      let imageUrl = '';
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const data = await api.postForm('/media/upload', formData, { auth: true });
+        imageUrl = data.url;
+      }
+      const payload = { ...form, wantedBy: user.name, achieved: false, imageUrl };
+      const created = editingId ? await api.put(`/wishlist/${editingId}`, payload) : await api.post('/wishlist', payload);
+      setItems((prev) => (editingId ? prev.map((i) => (i.id === editingId ? created : i)) : [created, ...prev]));
+      resetForm();
     } finally {
       setSaving(false);
     }
+  }
+
+  function resetForm() {
+    setForm({ name: '', price: '', link: '', priority: 'media' });
+    setImageFile(null);
+    setEditingId(null);
+    setOpen(false);
+  }
+
+  function startEdit(item) {
+    setEditingId(item.id);
+    setForm({ name: item.name || '', price: item.price || '', link: item.link || '', priority: item.priority || 'media' });
+    setImageFile(null);
+    setOpen(true);
   }
 
   async function toggleAchieved(item) {
@@ -62,7 +86,7 @@ export default function Wishlist() {
         title="Deseos"
         description="Cosas que quieren comprarse o cumplir juntos"
         action={
-          <button className="btn-primary" onClick={() => setOpen(true)}>
+          <button className="btn-primary" onClick={() => { resetForm(); setOpen(true); }}>
             <Plus size={18} /> Agregar deseo
           </button>
         }
@@ -87,7 +111,7 @@ export default function Wishlist() {
         <div className="space-y-8">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {pending.map((item) => (
-              <WishCard key={item.id} item={item} onToggle={toggleAchieved} onDelete={remove} />
+              <WishCard key={item.id} item={item} onToggle={toggleAchieved} onDelete={remove} onEdit={startEdit} />
             ))}
           </div>
           {achieved.length > 0 && (
@@ -97,7 +121,7 @@ export default function Wishlist() {
               </p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {achieved.map((item) => (
-                  <WishCard key={item.id} item={item} onToggle={toggleAchieved} onDelete={remove} muted />
+                  <WishCard key={item.id} item={item} onToggle={toggleAchieved} onDelete={remove} onEdit={startEdit} muted />
                 ))}
               </div>
             </div>
@@ -105,7 +129,7 @@ export default function Wishlist() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Agregar deseo">
+      <Modal open={open} onClose={resetForm} title={editingId ? 'Editar deseo' : 'Agregar deseo'}>
         <form onSubmit={handleAdd} className="space-y-4">
           <div>
             <label className="label" htmlFor="name">¿Que quieren?</label>
@@ -155,8 +179,9 @@ export default function Wishlist() {
               placeholder="https://..."
             />
           </div>
+          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
           <button type="submit" disabled={saving || !form.name.trim()} className="btn-primary w-full">
-            {saving ? <Loader2 size={18} className="animate-spin" /> : 'Agregar'}
+            {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Agregar'}
           </button>
         </form>
       </Modal>
@@ -164,7 +189,7 @@ export default function Wishlist() {
   );
 }
 
-function WishCard({ item, onToggle, onDelete, muted }) {
+function WishCard({ item, onToggle, onDelete, onEdit, muted }) {
   const priority = PRIORITIES[item.priority] || PRIORITIES.media;
   return (
     <div className={`card p-4 flex flex-col ${muted ? 'opacity-60' : ''}`}>
@@ -172,10 +197,16 @@ function WishCard({ item, onToggle, onDelete, muted }) {
         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${priority.className}`}>
           {priority.label}
         </span>
-        <button onClick={() => onDelete(item.id)} className="text-ink/25 hover:text-berry transition-colors">
-          <Trash2 size={15} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => onEdit(item)} className="text-ink/25 hover:text-berry transition-colors" aria-label="Editar">
+            <Pencil size={14} />
+          </button>
+          <button onClick={() => onDelete(item.id)} className="text-ink/25 hover:text-berry transition-colors">
+            <Trash2 size={15} />
+          </button>
+        </div>
       </div>
+      {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="mt-3 h-32 w-full rounded-lg object-cover" />}
       <p className={`font-display font-semibold text-lg mt-2 ${item.achieved ? 'line-through' : ''}`}>
         {item.name}
       </p>

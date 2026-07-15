@@ -14,12 +14,13 @@ require_once __DIR__ . '/router.php';
 loadEnv(__DIR__ . '/.env');
 
 // 3. Inicializar Controladores CRUD
-$shopping = new CrudController('shopping', ['name', 'quantity', 'category', 'addedBy', 'bought']);
-$debts    = new CrudController('debts', ['from', 'to', 'amount', 'description', 'paid', 'paidAt']);
-$wishlist = new CrudController('wishlist', ['name', 'price', 'link', 'priority', 'wantedBy', 'achieved']);
-$events   = new CrudController('events', ['title', 'date', 'recurringYearly', 'notes', 'createdBy']);
-$appoint  = new CrudController('appointments', ['title', 'date', 'time', 'location', 'notes', 'createdBy', 'done']);
-$notes    = new CrudController('notes', ['message', 'fromPerson', 'color'], ['from' => 'fromPerson']);
+$shopping = new CrudController('shopping', ['name', 'quantity', 'category', 'addedBy', 'bought', 'imageUrl']);
+$debts    = new CrudController('debts', ['from', 'to', 'amount', 'description', 'paid', 'paidAt', 'imageUrl']);
+$wishlist = new CrudController('wishlist', ['name', 'price', 'link', 'priority', 'wantedBy', 'achieved', 'imageUrl']);
+$events   = new CrudController('events', ['title', 'date', 'recurringYearly', 'notes', 'createdBy', 'imageUrl']);
+$appoint  = new CrudController('appointments', ['title', 'date', 'time', 'location', 'notes', 'createdBy', 'done', 'imageUrl']);
+$notes    = new CrudController('notes', ['message', 'fromPerson', 'color', 'imageUrl'], ['from' => 'fromPerson']);
+$gallery  = new CrudController('gallery', ['title', 'imageUrl', 'description', 'createdBy']);
 
 // 4. Configurar el Router
 $router = new Router();
@@ -32,6 +33,19 @@ $router->add('GET', '/api/health', function () {
 // Rutas de Autenticación
 $router->add('GET',  '/api/auth/profiles', [AuthController::class, 'getProfiles']);
 $router->add('POST', '/api/auth/login',    [AuthController::class, 'login']);
+$router->add('POST', '/api/media/upload', function () {
+    requireAuth();
+    if (!isset($_FILES['image']) || !is_array($_FILES['image'])) {
+        sendError(400, 'No se envió ninguna imagen');
+    }
+
+    $url = storeUploadedFile($_FILES['image']);
+    if (!$url) {
+        sendError(400, 'No se pudo subir la imagen');
+    }
+
+    sendJson(200, ['url' => $url]);
+});
 
 // Ruta Especial de Deudas (Resumen)
 $router->add('GET', '/api/debts/summary/balance', [CrudController::class, 'getDebtsBalance']);
@@ -71,6 +85,12 @@ $router->add('GET',    '/api/notes',      [$notes, 'index']);
 $router->add('POST',   '/api/notes',      [$notes, 'store']);
 $router->add('PUT',    '/api/notes/{id}', [$notes, 'update']);
 $router->add('DELETE', '/api/notes/{id}', [$notes, 'destroy']);
+
+// Rutas para Colección: GALLERY
+$router->add('GET',    '/api/gallery',      [$gallery, 'index']);
+$router->add('POST',   '/api/gallery',      [$gallery, 'store']);
+$router->add('PUT',    '/api/gallery/{id}', [$gallery, 'update']);
+$router->add('DELETE', '/api/gallery/{id}', [$gallery, 'destroy']);
 
 // 5. Procesar la Petición
 $router->dispatch();

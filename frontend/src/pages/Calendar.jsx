@@ -19,12 +19,13 @@ import {
   subMonths
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarHeart, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, Repeat } from 'lucide-react';
+import { CalendarHeart, ChevronLeft, ChevronRight, Plus, Trash2, Loader2, Repeat, Pencil } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
+import ImageUploadField from '../components/ImageUploadField';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -45,6 +46,7 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [form, setForm] = useState({
     title: '',
@@ -52,6 +54,7 @@ export default function CalendarPage() {
     recurringYearly: true,
     notes: ''
   });
+  const [imageFile, setImageFile] = useState(null);
 
   function load() {
     setLoading(true);
@@ -64,13 +67,34 @@ export default function CalendarPage() {
     if (!form.title.trim() || !form.date) return;
     setSaving(true);
     try {
-      const created = await api.post('/events', { ...form, createdBy: user.name });
-      setEvents((prev) => [created, ...prev]);
-      setForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), recurringYearly: true, notes: '' });
-      setOpen(false);
+      let imageUrl = '';
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const data = await api.postForm('/media/upload', formData, { auth: true });
+        imageUrl = data.url;
+      }
+      const payload = { ...form, createdBy: user.name, imageUrl };
+      const created = editingId ? await api.put(`/events/${editingId}`, payload) : await api.post('/events', payload);
+      setEvents((prev) => (editingId ? prev.map((e) => (e.id === editingId ? created : e)) : [created, ...prev]));
+      resetForm();
     } finally {
       setSaving(false);
     }
+  }
+
+  function resetForm() {
+    setForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), recurringYearly: true, notes: '' });
+    setImageFile(null);
+    setEditingId(null);
+    setOpen(false);
+  }
+
+  function startEdit(event) {
+    setEditingId(event.id);
+    setForm({ title: event.title || '', date: event.date || format(new Date(), 'yyyy-MM-dd'), recurringYearly: Boolean(event.recurringYearly), notes: event.notes || '' });
+    setImageFile(null);
+    setOpen(true);
   }
 
   async function remove(id) {
@@ -113,7 +137,7 @@ export default function CalendarPage() {
         title="Fechas especiales"
         description="Aniversarios, cumpleanos y cualquier fecha que quieran celebrar"
         action={
-          <button className="btn-primary" onClick={() => setOpen(true)}>
+          <button className="btn-primary" onClick={() => { resetForm(); setOpen(true); }}>
             <Plus size={18} /> Agregar fecha
           </button>
         }
@@ -207,13 +231,18 @@ export default function CalendarPage() {
                     <p className="text-xs font-semibold text-berry-dark">
                       {days === 0 ? '¡Es hoy!' : days > 0 ? `en ${days} dias` : `hace ${Math.abs(days)} dias`}
                     </p>
-                    <button
-                      onClick={() => remove(ev.id)}
-                      className="text-ink/25 hover:text-berry transition-colors mt-1"
-                      aria-label="Borrar"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-1 mt-1">
+                      <button onClick={() => startEdit(ev)} className="text-ink/25 hover:text-berry transition-colors" aria-label="Editar">
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => remove(ev.id)}
+                        className="text-ink/25 hover:text-berry transition-colors"
+                        aria-label="Borrar"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -222,7 +251,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Agregar fecha especial">
+      <Modal open={open} onClose={resetForm} title={editingId ? 'Editar fecha' : 'Agregar fecha especial'}>
         <form onSubmit={handleAdd} className="space-y-4">
           <div>
             <label className="label" htmlFor="title">Titulo</label>
@@ -264,8 +293,9 @@ export default function CalendarPage() {
               placeholder="Ideas de regalo, plan, etc."
             />
           </div>
+          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
           <button type="submit" disabled={saving || !form.title.trim()} className="btn-primary w-full">
-            {saving ? <Loader2 size={18} className="animate-spin" /> : 'Guardar'}
+            {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Guardar'}
           </button>
         </form>
       </Modal>

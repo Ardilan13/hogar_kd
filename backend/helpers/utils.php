@@ -85,3 +85,39 @@ function normalizeBodyForStorage(array $body, array $allowedFields, array $field
     }
     return $normalized;
 }
+
+function ensureUploadsDirectory(): string
+{
+    $dir = __DIR__ . '/../uploads';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+    return $dir;
+}
+
+function storeUploadedFile(array $file): ?string
+{
+    if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        return null;
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($file['tmp_name']);
+    $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($mime, $allowed, true)) {
+        return null;
+    }
+
+    $originalName = pathinfo($file['name'] ?? 'image', PATHINFO_FILENAME);
+    $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '', $originalName) ?: 'image';
+    $extension = pathinfo($file['name'] ?? 'image', PATHINFO_EXTENSION);
+    $extension = $extension !== '' ? $extension : 'jpg';
+    $filename = $safeName . '-' . uniqid('', true) . '.' . strtolower($extension);
+    $target = ensureUploadsDirectory() . '/' . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $target)) {
+        return null;
+    }
+
+    return '/api/uploads/' . $filename;
+}

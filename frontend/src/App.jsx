@@ -9,6 +9,7 @@ import Wishlist from './pages/Wishlist';
 import CalendarPage from './pages/Calendar';
 import Appointments from './pages/Appointments';
 import Notes from './pages/Notes';
+import Gallery from './pages/Gallery';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="calendario" element={<CalendarPage />} />
         <Route path="citas" element={<Appointments />} />
         <Route path="notas" element={<Notes />} />
+        <Route path="galeria" element={<Gallery />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

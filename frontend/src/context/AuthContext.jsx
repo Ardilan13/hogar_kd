@@ -3,6 +3,19 @@ import { api } from '../api/client';
 
 const AuthContext = createContext(null);
 
+function persistSession(token, user) {
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  localStorage.setItem('pareja_token', token);
+  localStorage.setItem('pareja_user', JSON.stringify(user));
+  localStorage.setItem('pareja_session_expires', expiresAt);
+}
+
+function clearSession() {
+  localStorage.removeItem('pareja_token');
+  localStorage.removeItem('pareja_user');
+  localStorage.removeItem('pareja_session_expires');
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -10,23 +23,24 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const stored = localStorage.getItem('pareja_user');
     const token = localStorage.getItem('pareja_token');
-    if (stored && token) {
+    const expiresAt = localStorage.getItem('pareja_session_expires');
+    if (stored && token && (!expiresAt || new Date(expiresAt) > new Date())) {
       setUser(JSON.parse(stored));
+    } else {
+      clearSession();
     }
     setLoading(false);
   }, []);
 
   async function login(userId, pin) {
     const data = await api.post('/auth/login', { userId, pin }, { auth: false });
-    localStorage.setItem('pareja_token', data.token);
-    localStorage.setItem('pareja_user', JSON.stringify(data.user));
+    persistSession(data.token, data.user);
     setUser(data.user);
     return data.user;
   }
 
   function logout() {
-    localStorage.removeItem('pareja_token');
-    localStorage.removeItem('pareja_user');
+    clearSession();
     setUser(null);
   }
 
