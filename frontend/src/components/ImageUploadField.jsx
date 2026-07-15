@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 
-export default function ImageUploadField({ label = 'Imagen (opcional)', value, onChange }) {
+export default function ImageUploadField({ label = 'Imagen (opcional)', value, onChange, onRemove }) {
   const [preview, setPreview] = useState(value || '');
+  const [isRemoving, setIsRemoving] = useState(false);
 
   useEffect(() => {
     setPreview(value || '');
+    setIsRemoving(false);
   }, [value]);
 
   function handleChange(e) {
@@ -17,11 +19,14 @@ export default function ImageUploadField({ label = 'Imagen (opcional)', value, o
     }
     setPreview(URL.createObjectURL(file));
     onChange?.(file);
+    setIsRemoving(false);
   }
 
   function clearImage() {
     setPreview('');
+    setIsRemoving(true);
     onChange?.(null);
+    onRemove?.();
   }
 
   return (
@@ -32,12 +37,14 @@ export default function ImageUploadField({ label = 'Imagen (opcional)', value, o
         {preview ? 'Cambiar imagen' : 'Subir imagen'}
         <input type="file" accept="image/*" className="sr-only" onChange={handleChange} />
       </label>
-      {preview && (
+      {(preview || isRemoving) && (
         <div className="mt-3 rounded-xl border border-line bg-white p-2">
-          <img src={preview} alt="Vista previa" className="h-28 w-full rounded-lg object-cover" />
-          <button type="button" onClick={clearImage} className="mt-2 inline-flex items-center gap-1 text-xs text-ink/60 hover:text-berry">
-            <X size={12} /> Quitar
-          </button>
+          {preview && <img src={preview} alt="Vista previa" className="h-28 w-full rounded-lg object-cover" />}
+          {!isRemoving && (
+            <button type="button" onClick={clearImage} className="mt-2 inline-flex items-center gap-1 text-xs text-ink/60 hover:text-berry">
+              <X size={12} /> Quitar
+            </button>
+          )}
         </div>
       )}
     </div>

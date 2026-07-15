@@ -19,8 +19,10 @@ export default function Notes() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [message, setMessage] = useState('');
   const [imageFile, setImageFile] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   function load() {
     setLoading(true);
@@ -39,6 +41,8 @@ export default function Notes() {
         formData.append('image', imageFile);
         const data = await api.postForm('/media/upload', formData, { auth: true });
         imageUrl = data.url;
+      } else if (editingId && currentImageUrl && !removeImage) {
+        imageUrl = currentImageUrl;
       }
       const color = COLORS[Math.floor(Math.random() * COLORS.length)];
       const payload = { message, from: user.name, color, imageUrl };
@@ -53,14 +57,18 @@ export default function Notes() {
   function resetForm() {
     setMessage('');
     setImageFile(null);
+    setRemoveImage(false);
+    setCurrentImageUrl('');
     setEditingId(null);
     setOpen(false);
   }
 
   function startEdit(note) {
     setEditingId(note.id);
+    setCurrentImageUrl(note.imageUrl || '');
     setMessage(note.message || '');
     setImageFile(null);
+    setRemoveImage(false);
     setOpen(true);
   }
 
@@ -142,7 +150,12 @@ export default function Notes() {
               placeholder="Escribe algo lindo..."
             />
           </div>
-          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
+          <ImageUploadField
+            label="Foto opcional"
+            value={editingId ? currentImageUrl : ''}
+            onChange={setImageFile}
+            onRemove={() => setRemoveImage(true)}
+          />
           <button type="submit" disabled={saving || !message.trim()} className="btn-primary w-full">
             {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Dejar notita'}
           </button>

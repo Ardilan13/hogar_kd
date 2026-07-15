@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Image, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Image, Plus, Trash2, Loader2, Pencil } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
@@ -13,8 +13,11 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [form, setForm] = useState({ title: '', description: '' });
   const [imageFile, setImageFile] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   function load() {
     setLoading(true);
@@ -34,20 +37,36 @@ export default function Gallery() {
         formData.append('image', imageFile);
         const data = await api.postForm('/media/upload', formData, { auth: true });
         imageUrl = data.url;
+      } else if (editingId && currentImageUrl && !removeImage) {
+        imageUrl = currentImageUrl;
       }
-      const created = await api.post('/gallery', {
-        title: form.title,
-        description: form.description,
-        imageUrl,
-        createdBy: user?.name || 'Tú'
-      });
-      setItems((prev) => [created, ...prev]);
-      setForm({ title: '', description: '' });
-      setImageFile(null);
-      setOpen(false);
+      const payload = { title: form.title, description: form.description, imageUrl, createdBy: user?.name || 'Tú' };
+      const created = editingId
+        ? await api.put(`/gallery/${editingId}`, payload)
+        : await api.post('/gallery', payload);
+      setItems((prev) => (editingId ? prev.map((item) => (item.id === editingId ? created : item)) : [created, ...prev]));
+      resetForm();
     } finally {
       setSaving(false);
     }
+  }
+
+  function resetForm() {
+    setForm({ title: '', description: '' });
+    setImageFile(null);
+    setRemoveImage(false);
+    setCurrentImageUrl('');
+    setEditingId(null);
+    setOpen(false);
+  }
+
+  function startEdit(item) {
+    setEditingId(item.id);
+    setCurrentImageUrl(item.imageUrl || '');
+    setForm({ title: item.title || '', description: item.description || '' });
+    setImageFile(null);
+    setRemoveImage(false);
+    setOpen(true);
   }
 
   async function remove(id) {
@@ -95,9 +114,14 @@ export default function Gallery() {
                     <p className="font-display font-semibold text-lg">{item.title || 'Foto'}</p>
                     {item.description && <p className="text-sm text-ink/60 mt-1">{item.description}</p>}
                   </div>
-                  <button onClick={() => remove(item.id)} className="text-ink/30 hover:text-berry transition-colors" aria-label="Borrar">
-                    <Trash2 size={15} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => startEdit(item)} className="text-ink/30 hover:text-berry transition-colors" aria-label="Editar">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => remove(item.id)} className="text-ink/30 hover:text-berry transition-colors" aria-label="Borrar">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-ink/45 mt-3">Por {item.createdBy || 'alguien'}</p>
               </div>
@@ -106,9 +130,14 @@ export default function Gallery() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Agregar foto a la galería">
+      <Modal open={open} onClose={resetForm} title={editingId ? 'Editar foto' : 'Agregar foto a la galería'}>
         <form onSubmit={handleAdd} className="space-y-4">
-          <ImageUploadField label="Foto" onChange={setImageFile} />
+          <ImageUploadField
+            label="Foto"
+            value={editingId ? currentImageUrl : ''}
+            onChange={setImageFile}
+            onRemove={() => setRemoveImage(true)}
+          />
           <div>
             <label className="label" htmlFor="title">Titulo (opcional)</label>
             <input id="title" className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ej. Noche de cine" />
@@ -117,8 +146,8 @@ export default function Gallery() {
             <label className="label" htmlFor="description">Descripción (opcional)</label>
             <textarea id="description" rows={3} className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Algo bonito para recordar" />
           </div>
-          <button type="submit" disabled={saving || (!imageFile && !form.title.trim())} className="btn-primary w-full">
-            {saving ? <Loader2 size={18} className="animate-spin" /> : 'Guardar foto'}
+          <button type="submit" disabled={saving || (!imageFile && !form.title.trim() && !currentImageUrl)} className="btn-primary w-full">
+            {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Guardar foto'}
           </button>
         </form>
       </Modal>

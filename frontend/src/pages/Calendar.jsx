@@ -47,6 +47,7 @@ export default function CalendarPage() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [form, setForm] = useState({
     title: '',
@@ -55,6 +56,7 @@ export default function CalendarPage() {
     notes: ''
   });
   const [imageFile, setImageFile] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   function load() {
     setLoading(true);
@@ -73,6 +75,8 @@ export default function CalendarPage() {
         formData.append('image', imageFile);
         const data = await api.postForm('/media/upload', formData, { auth: true });
         imageUrl = data.url;
+      } else if (editingId && currentImageUrl && !removeImage) {
+        imageUrl = currentImageUrl;
       }
       const payload = { ...form, createdBy: user.name, imageUrl };
       const created = editingId ? await api.put(`/events/${editingId}`, payload) : await api.post('/events', payload);
@@ -86,14 +90,18 @@ export default function CalendarPage() {
   function resetForm() {
     setForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), recurringYearly: true, notes: '' });
     setImageFile(null);
+    setRemoveImage(false);
+    setCurrentImageUrl('');
     setEditingId(null);
     setOpen(false);
   }
 
   function startEdit(event) {
     setEditingId(event.id);
+    setCurrentImageUrl(event.imageUrl || '');
     setForm({ title: event.title || '', date: event.date || format(new Date(), 'yyyy-MM-dd'), recurringYearly: Boolean(event.recurringYearly), notes: event.notes || '' });
     setImageFile(null);
+    setRemoveImage(false);
     setOpen(true);
   }
 
@@ -293,7 +301,12 @@ export default function CalendarPage() {
               placeholder="Ideas de regalo, plan, etc."
             />
           </div>
-          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
+          <ImageUploadField
+            label="Foto opcional"
+            value={editingId ? currentImageUrl : ''}
+            onChange={setImageFile}
+            onRemove={() => setRemoveImage(true)}
+          />
           <button type="submit" disabled={saving || !form.title.trim()} className="btn-primary w-full">
             {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Guardar'}
           </button>

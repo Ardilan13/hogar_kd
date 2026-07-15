@@ -16,6 +16,7 @@ export default function Appointments() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [form, setForm] = useState({
     title: '',
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -24,6 +25,7 @@ export default function Appointments() {
     notes: ''
   });
   const [imageFile, setImageFile] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   function load() {
     setLoading(true);
@@ -42,6 +44,8 @@ export default function Appointments() {
         formData.append('image', imageFile);
         const data = await api.postForm('/media/upload', formData, { auth: true });
         imageUrl = data.url;
+      } else if (editingId && currentImageUrl && !removeImage) {
+        imageUrl = currentImageUrl;
       }
       const payload = { ...form, createdBy: user.name, done: false, imageUrl };
       const created = editingId ? await api.put(`/appointments/${editingId}`, payload) : await api.post('/appointments', payload);
@@ -55,14 +59,18 @@ export default function Appointments() {
   function resetForm() {
     setForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), time: '', location: '', notes: '' });
     setImageFile(null);
+    setRemoveImage(false);
+    setCurrentImageUrl('');
     setEditingId(null);
     setOpen(false);
   }
 
   function startEdit(item) {
     setEditingId(item.id);
+    setCurrentImageUrl(item.imageUrl || '');
     setForm({ title: item.title || '', date: item.date || format(new Date(), 'yyyy-MM-dd'), time: item.time || '', location: item.location || '', notes: item.notes || '' });
     setImageFile(null);
+    setRemoveImage(false);
     setOpen(true);
   }
 
@@ -194,7 +202,12 @@ export default function Appointments() {
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </div>
-          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
+          <ImageUploadField
+            label="Foto opcional"
+            value={editingId ? currentImageUrl : ''}
+            onChange={setImageFile}
+            onRemove={() => setRemoveImage(true)}
+          />
           <button type="submit" disabled={saving || !form.title.trim()} className="btn-primary w-full">
             {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Guardar'}
           </button>

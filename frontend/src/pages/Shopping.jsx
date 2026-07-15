@@ -16,8 +16,10 @@ export default function Shopping() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [form, setForm] = useState({ name: '', quantity: '', category: 'Mercado' });
   const [imageFile, setImageFile] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   function load() {
     setLoading(true);
@@ -40,6 +42,8 @@ export default function Shopping() {
         formData.append('image', imageFile);
         const data = await api.postForm('/media/upload', formData, { auth: true });
         imageUrl = data.url;
+      } else if (editingId && currentImageUrl && !removeImage) {
+        imageUrl = currentImageUrl;
       }
       const payload = { ...form, addedBy: user.name, bought: false, imageUrl };
       const created = editingId
@@ -60,14 +64,18 @@ export default function Shopping() {
   function resetForm() {
     setForm({ name: '', quantity: '', category: 'Mercado' });
     setImageFile(null);
+    setRemoveImage(false);
+    setCurrentImageUrl('');
     setEditingId(null);
     setOpen(false);
   }
 
   function startEdit(item) {
     setEditingId(item.id);
+    setCurrentImageUrl(item.imageUrl || '');
     setForm({ name: item.name || '', quantity: item.quantity || '', category: item.category || 'Mercado' });
     setImageFile(null);
+    setRemoveImage(false);
     setOpen(true);
   }
 
@@ -174,7 +182,12 @@ export default function Shopping() {
               </select>
             </div>
           </div>
-          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
+          <ImageUploadField
+            label="Foto opcional"
+            value={editingId ? currentImageUrl : ''}
+            onChange={setImageFile}
+            onRemove={() => setRemoveImage(true)}
+          />
           <button type="submit" disabled={saving || !form.name.trim()} className="btn-primary w-full">
             {saving ? <Loader2 size={18} className="animate-spin" /> : editingId ? 'Guardar cambios' : 'Agregar'}
           </button>

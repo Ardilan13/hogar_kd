@@ -18,8 +18,10 @@ export default function Debts() {
   const [saving, setSaving] = useState(false);
   const [showPaid, setShowPaid] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [form, setForm] = useState({ from: '', to: '', amount: '', description: '' });
   const [imageFile, setImageFile] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   function load() {
     setLoading(true);
@@ -52,6 +54,8 @@ export default function Debts() {
         formData.append('image', imageFile);
         const data = await api.postForm('/media/upload', formData, { auth: true });
         imageUrl = data.url;
+      } else if (editingId && currentImageUrl && !removeImage) {
+        imageUrl = currentImageUrl;
       }
       const payload = { ...form, amount: Number(form.amount), paid: false, imageUrl };
       if (editingId) {
@@ -69,14 +73,18 @@ export default function Debts() {
   function resetForm() {
     setForm({ from: '', to: '', amount: '', description: '' });
     setImageFile(null);
+    setRemoveImage(false);
+    setCurrentImageUrl('');
     setEditingId(null);
     setOpen(false);
   }
 
   function startEdit(debt) {
     setEditingId(debt.id);
+    setCurrentImageUrl(debt.imageUrl || '');
     setForm({ from: debt.from || '', to: debt.to || '', amount: debt.amount || '', description: debt.description || '' });
     setImageFile(null);
+    setRemoveImage(false);
     setOpen(true);
   }
 
@@ -263,7 +271,12 @@ export default function Debts() {
               placeholder="Ej. Uber, cena, mercado..."
             />
           </div>
-          <ImageUploadField label="Foto opcional" onChange={setImageFile} />
+          <ImageUploadField
+            label="Foto opcional"
+            value={editingId ? currentImageUrl : ''}
+            onChange={setImageFile}
+            onRemove={() => setRemoveImage(true)}
+          />
           <button
             type="submit"
             disabled={saving || !form.amount || form.from === form.to}
