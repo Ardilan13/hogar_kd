@@ -1,0 +1,81 @@
+{
+  "users": [
+    {
+      "id": "hVpqlwXq",
+      "name": "Dilan",
+      "pinHash": "$2a$10$dIAkKsMmTMX.8FpbNt6VrOP3hbzDVW0N8Y8AtqQkwJcb2PctbB4p6",
+      "avatar": "💙"
+    },
+    {
+      "id": "kbsrR6bG",
+      "name": "Karen",
+      "pinHash": "$2a$10$0rMuZHlHP61iPKrU9u/rF.6tLD5UMrdUpJ0ofGV43Zx/hqpzrjrWy",
+      "avatar": "🧡"
+    }
+  ],
+  "shopping": [
+    {
+      "id": "fALiLrC4BN",
+      "createdAt": "2026-07-13T18:44:23.734Z",
+      "name": "Condones",
+      "quantity": "3",
+      "category": "Otro",
+      "addedBy": "Dilan",
+      "bought": false,
+      "updatedAt": "2026-07-13T18:54:18.961Z"
+    },
+    {
+      "id": "274t6PK7HZ",
+      "createdAt": "2026-07-13T18:54:31.719Z",
+      "name": "Papa",
+      "quantity": "2 kg",
+      "category": "Mercado",
+      "addedBy": "Dilan",
+      "bought": false
+    }
+  ],
+  "debts": [
+    {
+      "id": "uDmMrNJJfj",
+      "createdAt": "2026-07-13T18:59:58.048Z",
+      "from": "Dilan",
+      "to": "Karen",
+      "amount": 443000,
+      "description": "Cuota 2 TV",
+      "paid": false,
+      "paidAt": null,
+      "updatedAt": "2026-07-13T19:00:06.266Z"
+    },
+    {
+      "id": "7KKExkZUtn",
+      "createdAt": "2026-07-13T19:02:51.091Z",
+      "from": "Dilan",
+      "to": "Karen",
+      "amount": 266000,
+      "description": "Gymnasio",
+      "paid": false
+    }
+  ],
+  "wishlist": [],
+  "events": [
+    {
+      "id": "MdxFRKeBYe",
+      "createdAt": "2026-07-13T18:43:47.686Z",
+      "title": "Aniversario",
+      "date": "2025-12-12",
+      "recurringYearly": true,
+      "notes": "",
+      "createdBy": "Dilan"
+    }
+  ],
+  "appointments": [],
+  "notes": [
+    {
+      "id": "e17ybOxHjT",
+      "createdAt": "2026-07-13T18:50:18.483Z",
+      "message": "Te amo ratita",
+      "from": "Dilan",
+      "color": "#F1E4E6"
+    }
+  ]
+}
